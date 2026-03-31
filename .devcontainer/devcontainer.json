@@ -1,0 +1,20 @@
+
+{
+  "name": "Devcontainer with Claude Code",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "CLAUDE_CODE_VERSION": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code"
+      ]
+    }
+  },
+  "containerEnv": {
+    "NODE_OPTIONS": "--max-old-space-size=4096"
+  }
+}
