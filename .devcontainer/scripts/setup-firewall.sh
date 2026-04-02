@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-WHITELIST="/opt/scripts/extra-whitelist.conf"
+WHITELIST="${FIREWALL_WHITELIST:-/opt/scripts/extra-whitelist.conf}"
 SET="allowed-net"
 TMP_SET="${SET}-next"
 STATUS_FILE="/var/log/firewall-status.txt"
@@ -49,8 +49,8 @@ validate_ip() {
     [[ "${#octets[@]}" -eq 4 ]] || return 1
 
     for octet in "${octets[@]}"; do
-        [[ "$octet" =~ ^[0-9]+$ ]] || return 1
-        ((octet >= 0 && octet <= 255)) || return 1
+        [[ "$octet" =~ ^(0|[1-9][0-9]*)$ ]] || return 1
+        ((10#$octet >= 0 && 10#$octet <= 255)) || return 1
     done
 }
 
@@ -68,7 +68,7 @@ validate_cidr() {
 set_entry_count() {
     local set_name="$1"
 
-    ipset list "$set_name" 2>/dev/null | awk '/^Number of entries:/ { print $4; exit }'
+    ipset list -t "$set_name" 2>/dev/null | awk '/^Number of entries:/ { print $4; exit }'
 }
 
 add_entry_to_set() {
@@ -108,6 +108,8 @@ add_domain_to_set() {
     local added=0
     local ip
     local -a resolved_ips=()
+    # Only A records; AAAA records are intentionally ignored because the ipset is
+    # IPv4-only (family inet) and IPv6 outbound is fully blocked at the ip6tables level.
     mapfile -t resolved_ips < <(dig +short A "$domain" 2>/dev/null | awk 'NF' | sort -u)
 
     if [[ "${#resolved_ips[@]}" -eq 0 ]]; then
@@ -285,6 +287,8 @@ configure_firewall_rules() {
     iptables -A OUTPUT -m set --match-set "$SET" dst -j ACCEPT
     iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 
+    # IPv6 is not used in this devcontainer; block it entirely to reduce
+    # attack surface and prevent IPv6 as a bypass path for the IPv4-only allowlist.
     ip6tables -F 2>/dev/null || true
     ip6tables -P INPUT DROP 2>/dev/null || true
     ip6tables -P FORWARD DROP 2>/dev/null || true
@@ -297,7 +301,7 @@ configure_firewall_rules() {
 verify_firewall() {
     log "Verifying firewall behavior..."
 
-    if wget --timeout=4 -qO- https://example.com >/dev/null 1>&1; then
+    if wget --timeout=4 -qO- https://example.com >/dev/null 2>&1; then
         warn "example.com should be blocked but is reachable"
     else
         log "Blocked example.com - OK"

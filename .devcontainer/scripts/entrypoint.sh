@@ -10,7 +10,8 @@ STATUS_INTERVAL="${FIREWALL_STATUS_INTERVAL:-60}"
 
 (
     while sleep "$REFRESH_INTERVAL"; do
-        /opt/scripts/setup-firewall.sh --refresh-only >>"$FIREWALL_LOG" 2>&1 || true
+        flock -n /var/lock/firewall-refresh.lock \
+            /opt/scripts/setup-firewall.sh --refresh-only >>"$FIREWALL_LOG" 2>&1 || true
     done
 ) &
 
