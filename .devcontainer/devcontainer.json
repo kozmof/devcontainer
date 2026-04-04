@@ -7,7 +7,17 @@
       "CLAUDE_CODE_VERSION": "latest"
     }
   },
-  "runArgs": ["--cap-add=NET_ADMIN"],
+  "runArgs": [
+    "--cap-drop=ALL",
+    // iptables needs NET_RAW here, and su-exec needs SETUID/SETGID to switch to the dev user.
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW",
+    "--cap-add=SETUID",
+    "--cap-add=SETGID",
+    "--security-opt=no-new-privileges:true",
+    "--pids-limit=512",
+    "--init"
+  ],
   "overrideCommand": false,
   "remoteUser": "dev",
   "customizations": {
@@ -19,5 +29,7 @@
   },
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096"
-  }
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind"
 }
