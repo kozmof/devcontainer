@@ -6,6 +6,9 @@ WHITELIST="${FIREWALL_WHITELIST:-/opt/scripts/extra-whitelist.conf}"
 SET="allowed-net"
 TMP_SET="${SET}-next"
 STATUS_FILE="/var/log/firewall-status.txt"
+IP_DOMAIN_MAP_FILE="/var/log/firewall-ip-domains.txt"
+
+declare -A IP_TO_DOMAIN
 
 SERVICE_DOMAINS=(
     "api.anthropic.com"
@@ -125,6 +128,7 @@ add_domain_to_set() {
 
         if add_entry_to_set "$set_name" "$ip" "$label"; then
             added=1
+            IP_TO_DOMAIN["$ip"]="${IP_TO_DOMAIN["$ip"]:+${IP_TO_DOMAIN["$ip"]}, }$domain"
         fi
     done
 
@@ -136,6 +140,16 @@ add_domain_to_set() {
     if [[ "$dynamic" == "true" ]]; then
         BUILD_DYNAMIC_SUCCESSES=$((BUILD_DYNAMIC_SUCCESSES + 1))
     fi
+}
+
+save_ip_domain_map() {
+    local ip
+    local tmp="${IP_DOMAIN_MAP_FILE}.$$"
+    for ip in "${!IP_TO_DOMAIN[@]}"; do
+        printf '%s\t%s\n' "$ip" "${IP_TO_DOMAIN[$ip]}"
+    done | sort > "$tmp"
+    chmod 644 "$tmp"
+    mv "$tmp" "$IP_DOMAIN_MAP_FILE"
 }
 
 add_github_ranges() {
@@ -164,6 +178,7 @@ add_github_ranges() {
         fi
         if add_entry_to_set "$set_name" "$cidr" "GitHub metadata range"; then
             added=1
+            IP_TO_DOMAIN["$cidr"]="github-meta-range"
         fi
     done < <(echo "$gh_meta" | jq -r '(.web + .api + .git + .packages)[]' 2>/dev/null | sort -u)
 
@@ -338,7 +353,26 @@ write_status_file() {
         printf '\nCurrent OUTPUT rules:\n'
         iptables -L OUTPUT -v -n --line-numbers 2>/dev/null || true
         printf '\nCurrent whitelist members:\n'
-        ipset list "$SET" 2>/dev/null || true
+        ipset list "$SET" 2>/dev/null | awk -v mapfile="$IP_DOMAIN_MAP_FILE" '
+            BEGIN {
+                while ((getline line < mapfile) > 0) {
+                    n = index(line, "\t")
+                    if (n > 0) {
+                        ip = substr(line, 1, n - 1)
+                        dom = substr(line, n + 1)
+                        domain[ip] = dom
+                    }
+                }
+            }
+            /^Members:/ { in_members = 1; print; next }
+            in_members && NF {
+                ip = $1
+                if (ip in domain) printf "%s  # %s\n", ip, domain[ip]
+                else print ip
+                next
+            }
+            { print }
+        ' || true
     } > "$tmp_file"
 
     chmod 644 "$tmp_file"
@@ -362,6 +396,7 @@ initial_setup() {
 
     restore_docker_dns_rules "$docker_dns_rules"
     build_allowed_set "$SET"
+    save_ip_domain_map
 
     host_ip=$(detect_host_gateway)
     configure_firewall_rules "$host_ip"
@@ -392,6 +427,7 @@ refresh_whitelist() {
 
     ipset swap "$TMP_SET" "$SET"
     ipset destroy "$TMP_SET" 2>/dev/null || true
+    save_ip_domain_map
     write_status_file
     log "Whitelist refresh complete. $BUILD_TOTAL_ENTRIES entries active."
 }
