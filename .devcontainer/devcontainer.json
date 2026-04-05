@@ -31,5 +31,6 @@
     "NODE_OPTIONS": "--max-old-space-size=4096"
   },
   "workspaceFolder": "/workspace",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind"
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "postCreateCommand": "wget -qO- https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.sh | sh"
 }

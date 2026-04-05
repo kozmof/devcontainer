@@ -41,7 +41,7 @@ RUN apk update && apk add \
 ARG USERNAME=dev
 
 # Create non-root user
-RUN addgroup ${USERNAME} && adduser -D -G ${USERNAME} ${USERNAME}
+RUN addgroup ${USERNAME} && adduser -D -G ${USERNAME} -s /bin/bash ${USERNAME}
 
 # Ensure default dev user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
