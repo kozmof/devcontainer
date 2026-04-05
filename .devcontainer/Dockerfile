@@ -90,7 +90,7 @@ COPY --chown=${USERNAME}:${USERNAME} island/profiles/ /home/${USERNAME}/.config/
 
 # Binary shims: wrap npm and git with island sandboxing
 COPY scripts/shims/ /usr/local/bin/
-RUN chmod +x /usr/local/bin/npm /usr/local/bin/git
+RUN chmod +x /usr/local/bin/npm /usr/local/bin/git /usr/local/bin/pnpm
 
 # Shell alias: 'claude' runs via island claude-code profile
 COPY --chown=${USERNAME}:${USERNAME} bash_aliases /home/${USERNAME}/.bash_aliases

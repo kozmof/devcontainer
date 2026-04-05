@@ -1,0 +1,14 @@
+# Profile for pnpm invocations inside /workspace.
+# Applied via the /usr/local/bin/pnpm shim.
+#
+# workspace = false preserves the real XDG dirs so pnpm can reach ~/.config/npm.
+# pnpm store is redirected to /workspace/.pnpm-store to avoid needing ~/.local access.
+
+workspace = false
+
+[[context]]
+when_beneath = "/workspace"
+
+[[env]]
+name = "npm_config_store_dir"
+literal = "/workspace/.pnpm-store"

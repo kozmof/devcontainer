@@ -1,0 +1,8 @@
+#!/bin/sh
+# Wrapper that runs pnpm inside the island pnpm-workspace Landlock sandbox.
+# Protects against malicious postinstall hooks reading ~/.ssh, ~/.claude, etc.
+# The real pnpm binary is at /usr/bin/pnpm.
+#
+# To bypass the sandbox (e.g. for 'pnpm install -g'), use the full path:
+#   /usr/bin/pnpm install -g <pkg>
+exec island run -p pnpm-workspace -- /usr/bin/pnpm "$@"

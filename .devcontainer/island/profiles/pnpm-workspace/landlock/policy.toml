@@ -1,0 +1,59 @@
+# Landlock policy for pnpm and its child processes (postinstall hooks, etc.).
+#
+# Child processes (pnpm lifecycle scripts) inherit Landlock restrictions,
+# which is the primary protection against malicious postinstall hooks.
+#
+# Allows access to:
+#   - System binaries/libs                    (read + execute)
+#   - Safe pseudo-devices                     (read/write)
+#   - /etc, /proc/self, /proc/cpuinfo         (read only)
+#   - /tmp                                    (full — includes ssh-agent socket)
+#   - /workspace                              (full — project files + pnpm store)
+#   - ~/.npmrc                                (read — registry auth tokens)
+#   - ~/.config/npm                           (read — XDG npm config)
+#
+# Denies by omission:
+#   - ~/.ssh, ~/.claude, ~/.gnupg
+#   - /opt/scripts, /var/log
+
+abi = 6
+
+[[ruleset]]
+handled_access_fs = ["abi.all"]
+handled_access_net = ["abi.all"]
+scoped = ["abi.all"]
+
+# System binaries and libraries
+[[path_beneath]]
+allowed_access = ["abi.read_execute"]
+parent = ["/bin", "/lib", "/sbin", "/usr"]
+
+# Safe pseudo-devices
+[[path_beneath]]
+allowed_access = ["read_file", "write_file"]
+parent = ["/dev/full", "/dev/null", "/dev/random", "/dev/urandom", "/dev/zero"]
+
+# System configuration (read only)
+[[path_beneath]]
+allowed_access = ["read_dir", "read_file", "refer"]
+parent = ["/etc", "/proc/self", "/proc/cpuinfo"]
+
+# Ephemeral scratch space (also contains SSH_AUTH_SOCK if ssh-agent is running)
+[[path_beneath]]
+allowed_access = ["abi.all"]
+parent = ["/tmp"]
+
+# Workspace — project source and pnpm store (npm_config_store_dir=/workspace/.pnpm-store)
+[[path_beneath]]
+allowed_access = ["abi.all"]
+parent = ["/workspace"]
+
+# npm registry auth tokens (shared with pnpm)
+[[path_beneath]]
+allowed_access = ["read_file"]
+parent = ["/home/dev/.npmrc"]
+
+# XDG npm config directory (shared with pnpm)
+[[path_beneath]]
+allowed_access = ["read_dir", "read_file", "refer"]
+parent = ["/home/dev/.config/npm"]

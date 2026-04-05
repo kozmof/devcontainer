@@ -106,7 +106,7 @@ check_island() {
         profile_base="/workspace/.devcontainer/island/profiles"
     fi
 
-    for profile in claude-code npm-workspace git-workspace; do
+    for profile in claude-code npm-workspace pnpm-workspace git-workspace; do
         if [[ -d "$profile_base/$profile" ]]; then
             pass "profile present: $profile"
         else
@@ -115,9 +115,10 @@ check_island() {
     done
 
     # Shims
-    local git_path npm_path
+    local git_path npm_path pnpm_path
     git_path=$(command -v git 2>/dev/null || true)
     npm_path=$(command -v npm 2>/dev/null || true)
+    pnpm_path=$(command -v pnpm 2>/dev/null || true)
 
     if grep -q "island" "$git_path" 2>/dev/null; then
         pass "git shim uses island ($git_path)"
@@ -129,6 +130,12 @@ check_island() {
         pass "npm shim uses island ($npm_path)"
     else
         fail "npm at '$npm_path' does not appear to be the island shim"
+    fi
+
+    if grep -q "island" "$pnpm_path" 2>/dev/null; then
+        pass "pnpm shim uses island ($pnpm_path)"
+    else
+        fail "pnpm at '$pnpm_path' does not appear to be the island shim"
     fi
 
     # claude alias
@@ -167,6 +174,14 @@ check_island() {
     sandbox_blocks npm-workspace ls /var/log
     sandbox_allows npm-workspace ls /workspace
     sandbox_allows npm-workspace ls /tmp
+
+    # pnpm-workspace: same threat model as npm-workspace
+    # Blocked: /opt/scripts, /var/log, /home/dev/.gnupg
+    # Allowed: /workspace (project files + pnpm store), /tmp
+    sandbox_blocks pnpm-workspace ls /opt/scripts
+    sandbox_blocks pnpm-workspace ls /var/log
+    sandbox_allows pnpm-workspace ls /workspace
+    sandbox_allows pnpm-workspace ls /tmp
 
     # git-workspace: protects against compromised git hooks
     # Blocked: /opt/scripts, /var/log, /home/dev/.npmrc (unlike npm-workspace)
