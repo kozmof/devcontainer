@@ -4,4 +4,13 @@
 # workspace = true redirects XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME,
 # and TMPDIR to island-managed paths, isolating Claude's config/history from
 # the real ~/.claude directory.
+#
+# CLAUDE_CONFIG_DIR redirects Claude Code's own config/credentials dir away
+# from the real ~/.claude (which Landlock denies) to the island-managed
+# XDG_CONFIG_HOME.  Claude Code does not follow XDG conventions natively, so
+# this env var is the only way to make it use the isolated workspace dir.
 workspace = true
+
+[[env]]
+name = "CLAUDE_CONFIG_DIR"
+literal = "/home/dev/.config/island-config-profiles/claude-code"

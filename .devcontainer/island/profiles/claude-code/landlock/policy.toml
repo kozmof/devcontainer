@@ -2,14 +2,16 @@
 #
 # Allows access to:
 #   - System binaries/libs under /usr, /bin, /lib, /sbin  (read + execute)
-#   - Safe pseudo-devices                                  (read/write)
+#   - Safe pseudo-devices incl. /dev/tty and /dev/pts     (read/write)
 #   - System config under /etc and /proc/self              (read only)
 #   - /tmp and /workspace                                  (full access)
+#   - Outbound HTTPS (port 443) for the Anthropic API
 #
 # Denies by omission (Landlock default-deny):
 #   - ~/.ssh, ~/.claude, ~/.gnupg, ~/.npmrc
 #   - /opt/scripts (container firewall scripts)
 #   - /var/log (firewall audit logs)
+#   - All TCP ports except 443
 #
 # island's workspace = true automatically grants read-write access to the
 # island-managed XDG dirs (XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME).
@@ -31,6 +33,11 @@ parent = ["/bin", "/lib", "/sbin", "/usr"]
 allowed_access = ["read_file", "write_file"]
 parent = ["/dev/full", "/dev/null", "/dev/random", "/dev/urandom", "/dev/zero"]
 
+# Terminal devices (needed by Claude Code's TUI)
+[[path_beneath]]
+allowed_access = ["read_file", "write_file"]
+parent = ["/dev/tty", "/dev/pts"]
+
 # System configuration (read only)
 [[path_beneath]]
 allowed_access = ["read_dir", "read_file", "refer"]
@@ -45,3 +52,10 @@ parent = ["/tmp"]
 [[path_beneath]]
 allowed_access = ["abi.all"]
 parent = ["/workspace"]
+
+# Outbound HTTPS for the Anthropic API (api.anthropic.com, statsig.anthropic.com)
+# The external iptables firewall enforces the domain allowlist; Landlock only
+# needs to permit the port so node's connect() is not blocked before iptables.
+[[net_port]]
+allowed_access = ["connect_tcp"]
+port = [443]
