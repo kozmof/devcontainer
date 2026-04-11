@@ -117,8 +117,10 @@ check_island() {
     # Shims
     local git_path npm_path pnpm_path
     git_path=$(command -v git 2>/dev/null || true)
-    npm_path=$(command -v npm 2>/dev/null || true)
-    pnpm_path=$(command -v pnpm 2>/dev/null || true)
+    # Use type -P to resolve the binary file on disk, bypassing any shell
+    # functions (e.g. safe-chain wraps npm/pnpm as functions in .bashrc).
+    npm_path=$(type -P npm 2>/dev/null || true)
+    pnpm_path=$(type -P pnpm 2>/dev/null || true)
 
     if grep -q "island" "$git_path" 2>/dev/null; then
         pass "git shim uses island ($git_path)"
@@ -141,22 +143,30 @@ check_island() {
     # claude shim — protects terminal and script invocations of claude.
     # Note: the VS Code extension uses its own bundled native binary and does not
     # go through this shim; island sandboxing does not apply to the extension.
-    local claude_path
-    claude_path=$(command -v claude 2>/dev/null || true)
-    if grep -q "island run -p claude-code" "$claude_path" 2>/dev/null; then
-        pass "claude shim uses island ($claude_path)"
+    #
+    # claude may be installed as either a shim file or a shell alias
+    # (e.g. alias claude='island run -p claude-code -- ...').  Handle both:
+    # check the alias/function definition first, then fall back to the file.
+    local claude_ref
+    claude_ref=$(command -v claude 2>/dev/null || true)
+    if echo "$claude_ref" | grep -q "island run -p claude-code"; then
+        pass "claude shim uses island (alias)"
+    elif grep -q "island run -p claude-code" "$claude_ref" 2>/dev/null; then
+        pass "claude shim uses island ($claude_ref)"
     else
-        fail "claude at '$claude_path' does not appear to be the island shim"
+        fail "claude at '$claude_ref' does not appear to be the island shim"
     fi
 
     # codex shim — protects terminal and script invocations of codex.
-    # Same caveat as above: the VS Code extension uses its own bundled binary.
-    local codex_path
-    codex_path=$(command -v codex 2>/dev/null || true)
-    if grep -q "island run -p codex" "$codex_path" 2>/dev/null; then
-        pass "codex shim uses island ($codex_path)"
+    # Same caveat as above: may be a file shim or a shell alias.
+    local codex_ref
+    codex_ref=$(command -v codex 2>/dev/null || true)
+    if echo "$codex_ref" | grep -q "island run -p codex"; then
+        pass "codex shim uses island (alias)"
+    elif grep -q "island run -p codex" "$codex_ref" 2>/dev/null; then
+        pass "codex shim uses island ($codex_ref)"
     else
-        fail "codex at '$codex_path' does not appear to be the island shim"
+        fail "codex at '$codex_ref' does not appear to be the island shim"
     fi
 
     # Sandbox enforcement tests.
