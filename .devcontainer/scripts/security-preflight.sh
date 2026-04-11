@@ -138,21 +138,25 @@ check_island() {
         fail "pnpm at '$pnpm_path' does not appear to be the island shim"
     fi
 
-    # claude alias
-    local aliases_file="$HOME/.bash_aliases"
-    if grep -q "island run -p claude-code" "$aliases_file" 2>/dev/null || \
-       grep -q "island run -p claude-code" "$HOME/.bashrc" 2>/dev/null; then
-        pass "claude alias uses island"
+    # claude shim — protects terminal and script invocations of claude.
+    # Note: the VS Code extension uses its own bundled native binary and does not
+    # go through this shim; island sandboxing does not apply to the extension.
+    local claude_path
+    claude_path=$(command -v claude 2>/dev/null || true)
+    if grep -q "island run -p claude-code" "$claude_path" 2>/dev/null; then
+        pass "claude shim uses island ($claude_path)"
     else
-        fail "claude alias not found or does not reference island (checked $aliases_file and ~/.bashrc)"
+        fail "claude at '$claude_path' does not appear to be the island shim"
     fi
 
-    # codex alias
-    if grep -q "island run -p codex" "$aliases_file" 2>/dev/null || \
-       grep -q "island run -p codex" "$HOME/.bashrc" 2>/dev/null; then
-        pass "codex alias uses island"
+    # codex shim — protects terminal and script invocations of codex.
+    # Same caveat as above: the VS Code extension uses its own bundled binary.
+    local codex_path
+    codex_path=$(command -v codex 2>/dev/null || true)
+    if grep -q "island run -p codex" "$codex_path" 2>/dev/null; then
+        pass "codex shim uses island ($codex_path)"
     else
-        fail "codex alias not found or does not reference island (checked $aliases_file and ~/.bashrc)"
+        fail "codex at '$codex_path' does not appear to be the island shim"
     fi
 
     # Sandbox enforcement tests.

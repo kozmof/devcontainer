@@ -1,0 +1,12 @@
+#!/bin/sh
+# Wrapper that runs Codex inside the island codex Landlock sandbox.
+# Protects against Codex reading ~/.ssh, ~/.claude (real), ~/.gnupg, /opt/scripts, /var/log.
+# The real codex binary is at /usr/local/share/npm-global/bin/codex.
+#
+# This shim is installed at /usr/local/bin/codex for scripts and interactive shells.
+# NOTE: The VS Code extension uses its own bundled native binary and does NOT invoke
+# this shim. Island sandboxing does not apply to the extension.
+#
+# To bypass the sandbox (e.g. for debugging), use the full path:
+#   /usr/local/share/npm-global/bin/codex
+exec island run -p codex -- /usr/local/share/npm-global/bin/codex "$@"

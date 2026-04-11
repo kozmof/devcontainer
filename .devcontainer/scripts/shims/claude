@@ -1,0 +1,12 @@
+#!/bin/sh
+# Wrapper that runs Claude Code inside the island claude-code Landlock sandbox.
+# Protects against Claude reading ~/.ssh, ~/.claude (real), ~/.gnupg, /opt/scripts, /var/log.
+# The real claude binary is at /usr/local/share/npm-global/bin/claude.
+#
+# This shim is installed at /usr/local/bin/claude for scripts and interactive shells.
+# NOTE: The VS Code extension uses its own bundled native binary and does NOT invoke
+# this shim. Island sandboxing does not apply to the extension.
+#
+# To bypass the sandbox (e.g. for debugging), use the full path:
+#   /usr/local/share/npm-global/bin/claude
+exec island run -p claude-code -- /usr/local/share/npm-global/bin/claude "$@"
