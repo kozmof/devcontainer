@@ -15,6 +15,7 @@
     "--cap-add=SETUID",
     "--cap-add=SETGID",
     "--security-opt=no-new-privileges:true",
+    // large tests may need to increase this value.
     "--pids-limit=512",
     "--init"
   ],
