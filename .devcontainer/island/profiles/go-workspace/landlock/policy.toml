@@ -1,0 +1,66 @@
+# Landlock policy for go and its child processes (cgo, linker, test binaries, etc.).
+#
+# Child processes spawned by the go tool (compilers, linker, test binaries) inherit
+# Landlock restrictions, which is the primary protection against malicious code
+# executing during go build / go test.
+#
+# Allows access to:
+#   - System binaries/libs                    (read + execute)
+#   - Safe pseudo-devices                     (read/write)
+#   - /etc                                    (read + list)
+#   - /proc                                   (read files only, no dir listing)
+#   - /tmp                                    (full — toolchain temp files)
+#   - /workspace                              (full — project source + build cache)
+#   - /usr/local/go                           (read + execute — Go toolchain)
+#   - ~/go                                    (full — GOPATH module cache + installed binaries)
+#
+# Denies by omission:
+#   - ~/.ssh, ~/.claude, ~/.gnupg
+#   - /opt/scripts, /var/log
+#   - ~/.cache (build cache is redirected to /workspace/.go-cache via GOCACHE)
+
+abi = 6
+
+[[ruleset]]
+handled_access_fs = ["abi.all"]
+handled_access_net = ["abi.all"]
+scoped = ["abi.all"]
+
+# System binaries and libraries (includes /usr/local/go via /usr)
+[[path_beneath]]
+allowed_access = ["abi.read_execute"]
+parent = ["/bin", "/lib", "/sbin", "/usr"]
+
+# Safe pseudo-devices
+[[path_beneath]]
+allowed_access = ["read_file", "write_file"]
+parent = ["/dev/full", "/dev/null", "/dev/random", "/dev/urandom", "/dev/zero"]
+
+# System configuration (read only)
+[[path_beneath]]
+allowed_access = ["read_dir", "read_file", "refer"]
+parent = ["/etc"]
+
+# /proc: read_file only (not read_dir) so the Go runtime can open
+# /proc/self/stat etc. for memory/goroutine info, but child processes
+# cannot list /proc/ to enumerate running PIDs.
+# Note: /proc/self cannot be used here — Landlock resolves symlinks to the
+# island PID's inode at setup time, which doesn't cover child process inodes.
+[[path_beneath]]
+allowed_access = ["read_file"]
+parent = ["/proc"]
+
+# Ephemeral scratch space used by the Go toolchain for temp object files
+[[path_beneath]]
+allowed_access = ["abi.all"]
+parent = ["/tmp"]
+
+# Workspace — project source and build cache (GOCACHE=/workspace/.go-cache)
+[[path_beneath]]
+allowed_access = ["abi.all"]
+parent = ["/workspace"]
+
+# GOPATH — module cache (pkg/mod) and installed binaries (bin/)
+[[path_beneath]]
+allowed_access = ["abi.all"]
+parent = ["/home/dev/go"]

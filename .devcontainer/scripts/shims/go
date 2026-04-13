@@ -1,0 +1,9 @@
+#!/bin/sh
+# Wrapper that runs go inside the island go-workspace Landlock sandbox.
+# Protects against malicious code executed during go build / go test reading
+# ~/.ssh, ~/.claude, etc.
+# The real go binary is at /usr/local/go/bin/go.
+#
+# To bypass the sandbox (e.g. for 'go install' outside /workspace), use the full path:
+#   /usr/local/go/bin/go install <pkg>
+exec island run -p go-workspace -- /usr/local/go/bin/go "$@"

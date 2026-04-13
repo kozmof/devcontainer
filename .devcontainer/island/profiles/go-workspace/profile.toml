@@ -1,0 +1,14 @@
+# Profile for go invocations inside /workspace.
+# Applied via the /usr/local/bin/go shim.
+#
+# workspace = false preserves the real XDG dirs.
+# Build cache is redirected to /workspace/.go-cache to avoid needing ~/.cache access.
+
+workspace = false
+
+[[context]]
+when_beneath = "/workspace"
+
+[[env]]
+name = "GOCACHE"
+literal = "/workspace/.go-cache"
