@@ -67,3 +67,8 @@ parent = ["/home/dev/.npmrc"]
 [[path_beneath]]
 allowed_access = ["read_dir", "read_file", "refer"]
 parent = ["/home/dev/.config/npm"]
+
+# Go build cache and module cache (needed when go test runs inside this sandbox)
+# [[path_beneath]]
+# allowed_access = ["abi.all"]
+# parent = ["/home/dev/.cache/go-build", "/home/dev/go/pkg"]

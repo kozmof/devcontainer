@@ -66,10 +66,10 @@ ENV DEVCONTAINER=true
 
 # Create workspace and config directories and set permissions
 RUN mkdir -p /workspace /home/${USERNAME}/.claude /home/${USERNAME}/.codex \
-    /home/${USERNAME}/.config/npm \
+    /home/${USERNAME}/.config/npm /home/${USERNAME}/.cache/go-build \
     /home/${USERNAME}/go/bin /home/${USERNAME}/go/pkg && \
   chown -R ${USERNAME}:${USERNAME} /workspace /home/${USERNAME}/.claude /home/${USERNAME}/.codex \
-    /home/${USERNAME}/.config /home/${USERNAME}/go
+    /home/${USERNAME}/.config /home/${USERNAME}/.cache /home/${USERNAME}/go
 
 # Copy .npmrc so the registry is configured before npm installs
 COPY --chown=${USERNAME}:${USERNAME} .npmrc /home/${USERNAME}/.npmrc
