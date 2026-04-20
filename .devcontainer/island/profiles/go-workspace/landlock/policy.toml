@@ -64,3 +64,10 @@ parent = ["/workspace"]
 [[path_beneath]]
 allowed_access = ["abi.all"]
 parent = ["/home/dev/go"]
+
+# Outbound HTTPS for Go module proxy (proxy.golang.org, sum.golang.org, etc.)
+# The iptables firewall enforces the domain allowlist; Landlock only
+# needs to permit the port so connect() is not blocked before iptables.
+# [[net_port]]
+# allowed_access = ["connect_tcp"]
+# port = [443]
