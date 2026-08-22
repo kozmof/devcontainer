@@ -1,0 +1,10 @@
+#!/bin/sh
+# Wrapper that runs zig inside the island zig-workspace Landlock sandbox.
+# Protects against malicious code executed during `zig build` / `zig build test`
+# reading ~/.ssh, ~/.claude, etc. — build.zig and every build step it spawns run
+# under the sandbox.
+# The real zig binary is at /usr/local/zig/zig.
+#
+# To bypass the sandbox, use the full path:
+#   /usr/local/zig/zig build
+XDG_CONFIG_HOME=/etc exec island run -p zig-workspace -- /usr/local/zig/zig "$@"

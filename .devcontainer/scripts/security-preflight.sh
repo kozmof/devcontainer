@@ -159,7 +159,7 @@ check_island() {
     local profile_base="/etc/island/profiles"
     local profile protected_path
 
-    for profile in claude-code codex herdr npm-workspace pnpm-workspace git-workspace go-workspace cargo-workspace; do
+    for profile in claude-code codex herdr npm-workspace pnpm-workspace git-workspace go-workspace cargo-workspace zig-workspace; do
         if [[ -d "$profile_base/$profile" ]]; then
             pass "profile present: $profile"
         else
@@ -357,6 +357,47 @@ check_island() {
             else
                 warn "$toolchain_file asks for '$wanted' but the image ships $installed — no rustup here, so the request is ignored (rebuild with --build-arg RUST_VERSION=$wanted and its RUST_SHA512)"
             fi
+        fi
+    fi
+
+    # zig-workspace: protects against code executed by `zig build` — build.zig
+    # itself, build steps, generators, and test binaries.  Skipped unless the
+    # image actually ships Zig (Dockerfile.withZig).
+    if [[ -x /usr/local/zig/zig ]]; then
+        if [[ "$(stat -c %U /usr/local/zig/zig 2>/dev/null)" == "root" ]] && [[ ! -w /usr/local/zig/zig ]]; then
+            pass "Zig toolchain is root-owned and not writable: /usr/local/zig/zig"
+        else
+            fail "Zig toolchain asset is writable or missing: /usr/local/zig/zig"
+        fi
+
+        local zig_path
+        zig_path=$(type -P zig 2>/dev/null || true)
+        if grep -q "island run -p zig-workspace" "$zig_path" 2>/dev/null; then
+            pass "zig shim uses island ($zig_path)"
+        else
+            fail "zig at '$zig_path' does not use the zig-workspace profile"
+        fi
+
+        sandbox_blocks zig-workspace ls /opt/scripts
+        sandbox_blocks zig-workspace ls /var/log
+        sandbox_allows zig-workspace ls /workspace
+        sandbox_allows zig-workspace ls /tmp
+
+        if zig version >/dev/null 2>&1; then
+            pass "sandboxed Zig toolchain responds"
+        else
+            fail "sandboxed Zig toolchain does not respond"
+        fi
+
+        # Landlock domains nest by intersection, so an agent that cannot execute
+        # the toolchain cannot spawn zig no matter what zig-workspace allows.
+        # /usr/local/zig is covered by the agents' existing /usr grant, which is
+        # why this image needs no profiles-zig/ overlay — assert that it holds.
+        for profile in claude-code codex; do
+            sandbox_allows "$profile" /usr/local/zig/zig version
+        done
+        if [[ -x /opt/herdr/bin/herdr ]]; then
+            sandbox_allows herdr /usr/local/zig/zig version
         fi
     fi
 

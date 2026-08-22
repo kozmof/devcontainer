@@ -1,0 +1,77 @@
+# Landlock policy for zig and its child processes.
+#
+# `zig build` compiles and runs build.zig, and the resulting build steps spawn
+# arbitrary child processes (generators, test binaries, `zig cc` linker
+# invocations).  Those children inherit these restrictions, which is the primary
+# protection against malicious code executing during a build or test run.
+#
+# Zig fetches dependencies straight from the URLs in build.zig.zon — there is no
+# proxy in front of it the way npm has npm.flatt.tech and Go has
+# golang.flatt.tech.  build.zig.zon hashes give integrity, not vetting, so this
+# sandbox carries proportionally more of the supply-chain weight here.
+#
+# Allows access to:
+#   - System binaries/libs                    (read + execute)
+#   - Safe pseudo-devices                     (read/write)
+#   - /etc                                    (read + list)
+#   - /proc                                   (read files only, no dir listing)
+#   - /tmp                                    (full — toolchain temp files)
+#   - /workspace                              (full — project source, .zig-cache,
+#                                              and the global cache)
+#   - /usr/local/zig                          (read + execute, via /usr — the
+#                                              Zig compiler and its lib/ tree)
+#
+# Denies by omission:
+#   - ~/.ssh, ~/.claude, ~/.gnupg, ~/.npmrc
+#   - /opt/scripts, /var/log
+#   - ~/.cache (the global cache is redirected to /workspace/.zig-global-cache
+#     via ZIG_GLOBAL_CACHE_DIR)
+
+abi = 6
+
+[[ruleset]]
+handled_access_fs = ["abi.all"]
+handled_access_net = ["abi.all"]
+scoped = ["abi.all"]
+
+# System binaries and libraries (includes /usr/local/zig via /usr)
+[[path_beneath]]
+allowed_access = ["abi.read_execute"]
+parent = ["/bin", "/lib", "/sbin", "/usr"]
+
+# Safe pseudo-devices
+[[path_beneath]]
+allowed_access = ["read_file", "write_file"]
+parent = ["/dev/full", "/dev/null", "/dev/random", "/dev/urandom", "/dev/zero"]
+
+# System configuration (read only)
+[[path_beneath]]
+allowed_access = ["read_dir", "read_file", "refer"]
+parent = ["/etc"]
+
+# /proc: read_file only (not read_dir) so the toolchain can read
+# /proc/self/stat etc. for CPU and memory info, but child processes
+# cannot list /proc/ to enumerate running PIDs.
+# Note: /proc/self cannot be used here — Landlock resolves symlinks to the
+# island PID's inode at setup time, which doesn't cover child process inodes.
+[[path_beneath]]
+allowed_access = ["read_file"]
+parent = ["/proc"]
+
+# Ephemeral scratch space used by the toolchain for temp object files
+[[path_beneath]]
+allowed_access = ["abi.all"]
+parent = ["/tmp"]
+
+# Workspace — project source, .zig-cache, and the global cache
+# (ZIG_GLOBAL_CACHE_DIR=/workspace/.zig-global-cache, see profile.toml)
+[[path_beneath]]
+allowed_access = ["abi.all"]
+parent = ["/workspace"]
+
+# Outbound HTTPS for `zig fetch` and build.zig.zon dependency downloads.
+# The iptables firewall enforces the domain allowlist; Landlock only
+# needs to permit the port so connect() is not blocked before iptables.
+[[net_port]]
+allowed_access = ["connect_tcp"]
+port = [443]

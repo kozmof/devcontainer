@@ -44,8 +44,9 @@ policies. Files that exist only in your project are reported at the end but
 never deleted.
 
 ## Language variants
-devcontainer.json selects one of three Dockerfiles. Dockerfile builds a
-Node-only image, Dockerfile.withGo adds Go, and Dockerfile.withRust adds Rust.
+devcontainer.json selects one of four Dockerfiles. Dockerfile builds a
+Node-only image, Dockerfile.withGo adds Go, Dockerfile.withRust adds Rust,
+and Dockerfile.withZig adds Zig.
 
 ### Rust notes
 CARGO_HOME is /workspace/.cargo-home rather than ~/.cargo, the same
@@ -70,6 +71,39 @@ both copies.
 
 rust-toolchain.toml is ignored, since the image installs the Rust dist
 tarball rather than rustup. See .devcontainer/docs/version-bumps.md.
+
+### Zig notes
+Zig's global cache is /workspace/.zig-global-cache rather than ~/.cache/zig,
+for the same reason CARGO_HOME and GOCACHE are redirected: Landlock domains
+nest by intersection, so when an agent spawns zig the zig sandbox can only
+reach paths the agent's own policy already granted. No agent policy grants
+~/.cache, and every one of them grants /workspace, which is a bind mount, so
+fetched packages also survive image rebuilds. The local cache already
+defaults to .zig-cache inside the project. Add both .zig-cache/ and
+.zig-global-cache/ to your project's .gitignore.
+
+The toolchain lives at /usr/local/zig, not /opt/zig, so this variant needs no
+island/profiles-zig/ overlay the way Rust needs profiles-rust/. Every agent
+policy already grants read and execute on /usr, which covers it — the same
+reason Dockerfile.withGo needs no overlay for /usr/local/go.
+security-preflight.sh asserts that the agents really can execute
+/usr/local/zig/zig, so a future change to those grants surfaces at container
+start rather than the first time an agent tries to build something.
+
+One layer that exists for the other variants is missing here: Zig has no
+Takumi Guard equivalent. npm installs are proxied through npm.flatt.tech and
+Go module fetches through golang.flatt.tech, but zig fetch downloads straight
+from whatever URLs build.zig.zon names. The hashes in build.zig.zon give
+integrity and reproducibility, not vetting, so nothing screens a dependency
+for known-malicious code before it reaches the build. The zig-workspace
+sandbox carries proportionally more weight in this image, and ziglang.org is
+whitelisted in extra-whitelist.conf alongside the GitHub domains most
+dependencies resolve to. A build.zig.zon pointing anywhere else needs its host
+added there.
+
+The image ships one pinned compiler and no version manager, so a project
+requiring a different Zig version means a rebuild. See
+.devcontainer/docs/version-bumps.md.
 
 ## Checking a running container
 ```

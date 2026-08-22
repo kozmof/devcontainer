@@ -15,10 +15,10 @@ switched off (see [Codex](#codex) below).
 
 ## Where each version lives
 
-All knobs are `ARG`s near the top of each Dockerfile. The three variants
-(`Dockerfile`, `Dockerfile.withGo`, `Dockerfile.withRust`) share the same
-core set and must be kept in sync — bump the same value in every variant you
-build.
+All knobs are `ARG`s near the top of each Dockerfile. The four variants
+(`Dockerfile`, `Dockerfile.withGo`, `Dockerfile.withRust`, `Dockerfile.withZig`)
+share the same core set and must be kept in sync — bump the same value in every
+variant you build.
 
 | Tool | ARG(s) | Default | Notes |
 |---|---|---|---|
@@ -29,6 +29,7 @@ build.
 | herdr | `HERDR_VERSION` + `HERDR_SHA256` | `0.7.4` | Optional (`INSTALL_HERDR`); verified download |
 | Go (`.withGo`) | `GO_VERSION` + `GO_SHA256` | `1.24.2` | Verified download |
 | Rust (`.withRust`) | `RUST_VERSION` + `RUST_SHA512` | `1.96.0` | Verified download |
+| Zig (`.withZig`) | `ZIG_VERSION` + `ZIG_SHA256` | `0.16.0` | Verified download |
 
 `CLAUDE_CODE_VERSION`, `CODEX_VERSION`, `NPM_VERSION`, `ISLAND_REV`, and
 `INSTALL_HERDR` are also surfaced as build args in
@@ -57,6 +58,14 @@ updated together with the version or the build fails by design.
    release's published checksum.
 3. Rebuild.
 
+Zig publishes both in one place. `https://ziglang.org/download/index.json` lists
+every release; the `x86_64-linux` entry under a version carries the tarball URL
+and its `shasum`, which is exactly the `ZIG_SHA256` value:
+
+```
+curl -s https://ziglang.org/download/index.json | jq -r '."0.16.0"."x86_64-linux".shasum'
+```
+
 island is the exception: it is built from source at a pinned `ISLAND_REV`
 commit SHA, so there is no separate hash — pin a full 40-character SHA rather
 than a branch or tag. The SHA pins island's own source but not its crate
@@ -80,6 +89,18 @@ To honour a project's pin, rebuild with both args from that release's
 `security-preflight.sh` compares `rust-toolchain.toml` against the installed
 `rustc` and warns on a mismatch, so the drift shows up at container start
 rather than as a confusing build error.
+
+## Zig
+
+`ZIG_VERSION` is the whole story, as it is for Rust: the image ships one pinned
+compiler and there is no version manager to switch it. A project whose
+`build.zig.zon` declares a `minimum_zig_version` above the installed compiler
+fails at build time with Zig's own error, which at least names the problem
+plainly — rebuild with a matching `ZIG_VERSION` and `ZIG_SHA256`.
+
+Pin a tagged release rather than a `master` build. Nightly tarballs live under
+`ziglang.org/builds/` and are deleted as newer ones appear, so a `master` pin
+turns into a 404 within days and breaks the image rebuild.
 
 ## Codex
 

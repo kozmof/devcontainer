@@ -1,0 +1,32 @@
+# Profile for zig invocations inside /workspace.
+# Applied via the /usr/local/bin/zig shim.
+#
+# workspace = false preserves the real XDG dirs.
+#
+# ZIG_GLOBAL_CACHE_DIR is redirected to /workspace/.zig-global-cache rather than
+# the default ~/.cache/zig, for the same reason CARGO_HOME and GOCACHE are
+# redirected: Landlock domains nest by intersection, so when Claude Code, Codex,
+# or herdr spawns zig, the zig sandbox can only reach paths the *parent* policy
+# already granted.  ~/.cache is granted by none of them; /workspace is granted by
+# all of them, and it is a host bind mount, so the fetched-package cache also
+# survives image rebuilds without a named volume.
+#
+# The local cache needs no redirect — it already defaults to .zig-cache inside
+# the project directory.
+
+workspace = false
+
+[[context]]
+when_beneath = "/workspace"
+
+[[env]]
+name = "ZIG_GLOBAL_CACHE_DIR"
+literal = "/workspace/.zig-global-cache"
+
+# The shim sets XDG_CONFIG_HOME=/etc so island itself can find its profiles.
+# Point child processes somewhere isolated instead of leaving them with /etc as
+# their config home.  Zig reads nothing from here; this only stops build steps
+# and the tools they spawn from treating /etc as user configuration.
+[[env]]
+name = "XDG_CONFIG_HOME"
+literal = "/workspace/.zig-global-cache/xdg"
