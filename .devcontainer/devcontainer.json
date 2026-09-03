@@ -3,6 +3,14 @@
   "name": "didcon",
   "build": {
     "dockerfile": "Dockerfile",
+    // Re-resolve the `latest-dev` base tag on every build. The base image is the
+    // one unpinned input here, and `apk add` installs packages built against the
+    // repo's *current* glibc. Chainguard ships a new glibc major under a new
+    // package name (glibc-2.44, not a newer glibc), so apk cannot reconcile that
+    // against an already-built image — and a stale cached base yields tools that
+    // build clean but die at runtime with "GLIBC_x.yy not found". See
+    // docs/version-bumps.md.
+    "options": ["--pull"],
     "args": {
       // Option: specify versions explicitly
       "CLAUDE_CODE_VERSION": "latest",

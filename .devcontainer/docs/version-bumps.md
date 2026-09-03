@@ -36,6 +36,41 @@ variant you build.
 [`devcontainer.json`](../devcontainer.json), so the common bumps can be made
 there without editing the Dockerfile.
 
+## The base image is not pinned
+
+Everything in the table above is pinned. The base image is not: all four
+variants build `FROM cgr.dev/chainguard/node:latest-dev`, because the
+pinned-major tags (`node:26-dev` and friends) need a paid Chainguard plan.
+
+That matters more than an unpinned tag usually does. `apk add` installs
+packages built against the apk repo's *current* glibc, so a base image that has
+been sitting in the local Docker cache can be too old to run them. Chainguard
+publishes a new glibc major under a **new package name** (`glibc-2.44`, not a
+newer version of `glibc`), and their images pin exact versions in
+`/etc/apk/world` — so `apk upgrade` cannot close the gap, and neither can
+naming `glibc` in the install. The stale image simply cannot be repaired.
+
+The failure is quiet. The build succeeds and the breakage waits until runtime:
+
+```
+jq: /usr/lib/libm.so.6: version `GLIBC_2.44' not found (required by /usr/lib/libjq.so.1)
+```
+
+`devcontainer.json` therefore passes `--pull` in `build.options`, so the tag is
+re-resolved on every build. The cost is a registry check per build and a full
+rebuild of the layers after `FROM` whenever Chainguard bumps the base; the
+`island-builder` stage sits on a different base and is not invalidated by it.
+
+If you build a Dockerfile directly rather than through `devcontainer.json`,
+pass `--pull` yourself:
+
+```
+docker build --pull -f .devcontainer/Dockerfile .devcontainer
+```
+
+For a reproducible image, resolve `latest-dev` to a digest and pin that instead
+— but then re-resolve it deliberately, rather than letting the cache decide.
+
 ## Bumping an npm tool (Claude Code, Codex, npm)
 
 1. Edit the version in `devcontainer.json` (or the `ARG` in each Dockerfile).
